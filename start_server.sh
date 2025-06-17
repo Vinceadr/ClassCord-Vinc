@@ -1,4 +1,5 @@
 #!/bin/bash
+python3 server_classcord.py
 # Script de démarrage manuel pour le serveur ClassCord
 # Auteur: Vinceadr6
 # Date: 2025-06-17 13:45:52
