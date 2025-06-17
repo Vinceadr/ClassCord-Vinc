@@ -1,4 +1,3 @@
-
 import socket
 import threading
 import json
@@ -27,12 +26,13 @@ def save_users():
     print("[SAVE] Utilisateurs sauvegardés.")
 
 def broadcast(message, sender_socket=None):
-    for client_socket in CLIENTS:
+    for client_socket, username in CLIENTS.items():
         if client_socket != sender_socket:
             try:
                 client_socket.sendall((json.dumps(message) + '\n').encode())
-            except:
-                pass
+                print(f"[ENVOI] Message envoyé à {username} : {message}")
+            except Exception as e:
+                print(f"[ERREUR] Échec d'envoi à {username} : {e}")
 
 def handle_client(client_socket):
     buffer = ''
@@ -73,7 +73,13 @@ def handle_client(client_socket):
                             response = {'type': 'error', 'message': 'Login failed.'}
                             client_socket.sendall((json.dumps(response) + '\n').encode())
 
-                elif msg['type'] == 'message' and username:
+                elif msg['type'] == 'message':
+                    if not username:
+                        username = msg.get('from', 'invité')
+                        with LOCK:
+                            CLIENTS[client_socket] = username
+                        print(f"[INFO] Connexion invitée détectée : {username}")
+
                     msg['from'] = username
                     msg['timestamp'] = datetime.now().isoformat()
                     print(f"[MSG] {username} >> {msg['content']}")
@@ -96,7 +102,6 @@ def handle_client(client_socket):
 def main():
     load_users()
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # Ajout de l'option SO_REUSEADDR (elle permet au serveur de réutiliser immédiatement le port même s'il n'a pas été correctement libéré)
     server_socket.bind((HOST, PORT))
     server_socket.listen()
     print(f"[DEMARRAGE] Serveur en écoute sur {HOST}:{PORT}")
