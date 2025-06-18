@@ -1,0 +1,19 @@
+version: "3"
+
+services:
+  classcord:
+    build: .
+    image: classcord-server
+    container_name: classcord-app
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./:/app
+    restart: always
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G # Augmenté à 1GB pour éviter les problèmes de mémoire
+    environment:
+      - PYTHONUNBUFFERED=1 # Pour assurer que les logs Python sont envoyés immédiatement
