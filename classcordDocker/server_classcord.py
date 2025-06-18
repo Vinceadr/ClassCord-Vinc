@@ -1,113 +1,70 @@
-import socket
-import threading
-import json
-import pickle
+#!/usr/bin/env python3
+
 import os
+import time
+import signal
+import sys
+import logging
+from logging.handlers import SysLogHandler
 from datetime import datetime
 
-HOST = '0.0.0.0'
+# Configuration du logger
+logger = logging.getLogger('classcord')
+logger.setLevel(logging.INFO)
+
+# Handler pour syslog
+syslog_handler = SysLogHandler(address='/dev/log', facility=SysLogHandler.LOG_LOCAL0)
+syslog_format = logging.Formatter('classcord: %(levelname)s - %(message)s')
+syslog_handler.setFormatter(syslog_format)
+logger.addHandler(syslog_handler)
+
+# Handler pour la console
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+console_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console.setFormatter(console_format)
+logger.addHandler(console)
+
+# Configuration simple pour un serveur de démo
 PORT = 12345
 
-USER_FILE = 'users.pkl'
-CLIENTS = {}  # socket: username
-USERS = {}    # username: password
-LOCK = threading.Lock()
+def signal_handler(sig, frame):
+    logger.info("Signal reçu, arrêt propre du serveur...")
+    sys.exit(0)
 
-def load_users():
-    global USERS
-    if os.path.exists(USER_FILE):
-        with open(USER_FILE, 'rb') as f:
-            USERS = pickle.load(f)
-    print(f"[INIT] Utilisateurs chargés: {list(USERS.keys())}")
-
-def save_users():
-    with open(USER_FILE, 'wb') as f:
-        pickle.dump(USERS, f)
-    print("[SAVE] Utilisateurs sauvegardés.")
-
-def broadcast(message, sender_socket=None):
-    for client_socket, username in CLIENTS.items():
-        if client_socket != sender_socket:
-            try:
-                client_socket.sendall((json.dumps(message) + '\n').encode())
-                print(f"[ENVOI] Message envoyé à {username} : {message}")
-            except Exception as e:
-                print(f"[ERREUR] Échec d'envoi à {username} : {e}")
-
-def handle_client(client_socket):
-    buffer = ''
-    username = None
-    address = client_socket.getpeername()
-    print(f"[CONNEXION] Nouvelle connexion depuis {address}")
-    try:
-        while True:
-            data = client_socket.recv(1024).decode()
-            if not data:
-                break
-            buffer += data
-            while '\n' in buffer:
-                line, buffer = buffer.split('\n', 1)
-                print(f"[RECU] {address} >> {line}")
-                msg = json.loads(line)
-
-                if msg['type'] == 'register':
-                    with LOCK:
-                        if msg['username'] in USERS:
-                            response = {'type': 'error', 'message': 'Username already exists.'}
-                        else:
-                            USERS[msg['username']] = msg['password']
-                            save_users()
-                            response = {'type': 'register', 'status': 'ok'}
-                        client_socket.sendall((json.dumps(response) + '\n').encode())
-
-                elif msg['type'] == 'login':
-                    with LOCK:
-                        if USERS.get(msg['username']) == msg['password']:
-                            username = msg['username']
-                            CLIENTS[client_socket] = username
-                            response = {'type': 'login', 'status': 'ok'}
-                            client_socket.sendall((json.dumps(response) + '\n').encode())
-                            broadcast({'type': 'status', 'user': username, 'state': 'online'}, client_socket)
-                            print(f"[LOGIN] {username} connecté")
-                        else:
-                            response = {'type': 'error', 'message': 'Login failed.'}
-                            client_socket.sendall((json.dumps(response) + '\n').encode())
-
-                elif msg['type'] == 'message':
-                    if not username:
-                        username = msg.get('from', 'invité')
-                        with LOCK:
-                            CLIENTS[client_socket] = username
-                        print(f"[INFO] Connexion invitée détectée : {username}")
-
-                    msg['from'] = username
-                    msg['timestamp'] = datetime.now().isoformat()
-                    print(f"[MSG] {username} >> {msg['content']}")
-                    broadcast(msg, client_socket)
-
-                elif msg['type'] == 'status' and username:
-                    broadcast({'type': 'status', 'user': username, 'state': msg['state']}, client_socket)
-                    print(f"[STATUS] {username} est maintenant {msg['state']}")
-
-    except Exception as e:
-        print(f'[ERREUR] Problème avec {address} ({username}):', e)
-    finally:
-        if username:
-            broadcast({'type': 'status', 'user': username, 'state': 'offline'}, client_socket)
-        with LOCK:
-            CLIENTS.pop(client_socket, None)
-        client_socket.close()
-        print(f"[DECONNEXION] {address} déconnecté")
+# Enregistrer le gestionnaire de signal
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
 
 def main():
-    load_users()
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen()
-    print(f"[DEMARRAGE] Serveur en écoute sur {HOST}:{PORT}")
-    while True:
-        client_socket, addr = server_socket.accept()
-        threading.Thread(target=handle_client, args=(client_socket,), daemon=True).start()
+    logger.info(f"Démarrage du serveur ClassCord sur le port {PORT}")
+    
+    try:
+        # Log de démarrage du serveur
+        logger.info("Serveur démarré avec succès")
+        
+        # Simuler des événements pour l'exemple
+        while True:
+            # Log des événements du serveur
+            logger.debug("Vérification des connexions...")
+            
+            # Simulation d'une connexion (à remplacer par votre code réel)
+            current_time = datetime.now().strftime("%H:%M:%S")
+            if int(current_time.split(":")[2]) % 30 == 0:  # toutes les 30 secondes
+                logger.info(f"Nouvel utilisateur connecté: user_{current_time}")
+            
+            # Simulation d'un message (à remplacer par votre code réel)
+            if int(current_time.split(":")[2]) % 15 == 0:  # toutes les 15 secondes
+                logger.info(f"Message reçu de user_{current_time}: 'Bonjour tout le monde!'")
+            
+            time.sleep(1)
+            
+    except KeyboardInterrupt:
+        logger.info("Interruption clavier reçue, arrêt du serveur...")
+    except Exception as e:
+        logger.error(f"Erreur critique: {str(e)}", exc_info=True)
+    
+    logger.info("Serveur arrêté")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
