@@ -1,0 +1,46 @@
+version: "3"
+
+services:
+  classcord:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "12345:12345"
+    restart: unless-stopped
+    networks:
+      - monitoring_network
+
+  socket_exporter:
+    build:
+      context: ./prometheus
+      dockerfile: Dockerfile.exporter
+    ports:
+      - "9091:9091"
+    depends_on:
+      - classcord
+    networks:
+      - monitoring_network
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - socket_exporter
+    networks:
+      - monitoring_network
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - monitoring_network
+
+networks:
+  monitoring_network:
