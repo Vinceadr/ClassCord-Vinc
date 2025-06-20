@@ -437,6 +437,7 @@ Le serveur a été testé avec:
 ## 👥 Contributeurs
 
 - Vinceadr - Développeur principal
+- Claude Sonnet 3.7 - Développeur secondaire
 - Équipe pédagogique BTS SIO - Encadrement et conseil
 
 ---
